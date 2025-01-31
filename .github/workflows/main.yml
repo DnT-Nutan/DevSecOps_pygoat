@@ -1,1 +1,72 @@
+trigger:
+  branches:
+    include:
+      - main  
+
+permissions:
+  contents: write  
+  pull-requests: write
+
+
+pool:
+  vmImage: 'ubuntu-latest'  # Use Ubuntu-based agent
+
+variables:
+  - name: DOCKER_IMAGE
+    value: 'myapp:latest'  # Define the Docker image name
+
+stages:
+  - stage: Security_Scans
+    displayName: Run Security Scans
+    jobs:
+
+      # Static code analysis (Bandit scan)
+      - job: SAST_Scan
+        displayName: Static Code Analysis (Bandit)
+        steps:
+          - checkout: self  # Checkout the code
+
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.8'  # Set up Python version 3.8
+            displayName: 'Set up Python 3.8'
+
+          - script: |
+              pip install bandit
+              bandit -ll -ii -r . -f json -o bandit-report.json  # Run Bandit scan
+            displayName: 'Run Bandit Security Scan'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              publishLocation: 'Container'
+              artifactName: 'bandit-findings'  # Artifact name for Bandit report
+              targetPath: '$(Build.ArtifactStagingDirectory)/bandit-report.json'  # Path to Bandit report
+            displayName: 'Upload Bandit Findings'
+
+      - job: Image_Scan
+        displayName: Build Docker Image and Run Image Scan
+        steps:
+          - checkout: self  # Checkout the code
+
+          # Build Docker image
+          - script: docker build -f Dockerfile -t $(DOCKER_IMAGE) .
+            displayName: 'Build Docker Image'
+
+          # Run Docker Scout Security Scan
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh -o install-scout.sh
+              sh install-scout.sh
+              echo $(REPO_PSWD) | docker login -u $(REPO_USER) --password-stdin
+              docker scout quickview  # Perform Docker Scout quickview scan
+              docker scout cves --only-severities critical,high  # Scan for critical/high CVEs
+              docker scout cves --format=sarif > scout-report.sarif  # Generate SARIF report
+              ls -la  # List files for verification
+            displayName: 'Run Docker Scout Security Scan'
+
+          # Upload Docker Scout report
+          - task: PublishPipelineArtifact@0
+            inputs:
+              artifactName: 'docker-scout-report'  # Artifact name for Docker Scout report
+              targetPath: '$(Build.ArtifactStagingDirectory)/scout-report.sarif'  # Path to the SARIF report
+            displayName: 'Upload Docker Scout Findings'
 
