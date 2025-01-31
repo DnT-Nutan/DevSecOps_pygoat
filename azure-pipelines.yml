@@ -54,8 +54,8 @@ stages:
               echo $(REPO_PSWD) | docker login -u $(REPO_USER) --password-stdin
               docker scout quickview  
               docker scout cves --only-severities critical,high 
-              docker scout cves --format=sarif > scout-report.sarif 
-              ls -la 
+              docker scout cves --format=sarif > $(Build.ArtifactStagingDirectory)/scout-report.sarif 
+              ls -la $(Build.ArtifactStagingDirectory) 
             displayName: 'Run Docker Scout Security Scan'
 
           # Upload Docker Scout report
