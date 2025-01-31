@@ -63,4 +63,4 @@ stages:
             inputs:
               artifactName: 'docker-scout-report'  # Artifact name for Docker Scout report
               targetPath: '$(Build.ArtifactStagingDirectory)/scout-report.sarif'  # Path to the SARIF report
-            displayName: 'Upload Docker Scout Crackes'
+            displayName: 'Upload Docker Scout Report'
